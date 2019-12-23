@@ -1,0 +1,214 @@
+---
+output: html_document
+---
+Dear Director,
+
+##### Executive Summary
+
+* Part time employment arrangements are increasing for males but remain constant for females in the sector.
+* There is a decrease in part time employment for family and community services in both genders and an increase in finance, services and innovations.
+* The clusters for which male part time arrangements are increasing are in education, transport and finance services and innovation.
+
+
+```{r setup, echo=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressWarnings(library(tidyverse))
+suppressWarnings(library(formattable))
+suppressWarnings(library(kableExtra))
+
+#Function to Wrap text title in facet
+swr = function(string, nwrap) {
+  paste(strwrap(string, width=nwrap), collapse="\n")
+}
+swr = Vectorize(swr)
+
+```
+
+```{r, echo=FALSE}
+pt1 <- read.csv("ptft_table_pivotformat.csv",header=TRUE)
+colnames(pt1) <- c("Cluster", "Agency", "Year", "PTFT", "Gender", "Headcount")
+pt1[,6] <- as.numeric(gsub(",","",pt1$Headcount))
+pt2.1 <- aggregate(pt1[,6], by = list(pt1$Year, pt1$PTFT), FUN=sum)
+colnames(pt2.1) <- c("Year", "PTFT","Headcount")
+pt2.2 <- aggregate(pt1[,6], by = list(pt1$Year, pt1$Cluster, pt1$PTFT), FUN=sum)
+colnames(pt2.2) <- c("Year", "Cluster","PTFT","Headcount")
+pt3 <- aggregate(pt1[,6], by = list(pt1$Gender, pt1$Year), FUN=sum)
+colnames(pt3) <- c("Gender", "Year", "Headcount")
+pt4 <- aggregate(pt1[,6], by = list(pt1$Gender, pt1$PTFT, pt1$Year), FUN=sum)
+colnames(pt4) <- c("Gender", "PTFT", "Year", "Headcount")
+pt5 <- aggregate(pt1[,6], by=list(pt1$Cluster, pt1$Gender, pt1$Year), FUN=sum)
+colnames(pt5) <- c("Cluster","Gender", "Year", "Headcount")
+pt6 <- aggregate(pt1[,6], by=list(pt1$Cluster, pt1$Gender, pt1$PTFT, pt1$Year), FUN=sum)
+colnames(pt6) <- c("Cluster","Gender", "PTFT","Year", "Headcount")
+```
+
+```{r, echo = FALSE}
+
+# Question 1 Trends in Male Female Employment Over Time
+Q1plot <- ggplot2::ggplot(pt3,aes(x=Year,y=Headcount, group=Gender)) + geom_line(aes(color=Gender), size=1) + geom_point(aes(color=Gender)) + ggtitle("Number of Male and Female Employees from 2014-2018") +  theme(legend.position="right", axis.title.y = element_blank(), axis.title = element_text(size=10))
+
+num_employees <- pt3 %>% pivot_wider(names_from=Gender,values_from=Headcount)
+Q1table <- kable(num_employees,caption="Number of Employees 2014-2018") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+f <- num_employees$Female
+fdif <- f[2:5] - f[1:4]
+fdif_percent <- fdif/f[1:4]
+ave_f_change <- mean(fdif_percent[2:4])
+
+m <- num_employees$Male
+mdif <- m[2:5] - m[1:4]
+mdif_percent <- mdif/m[1:4]
+ave_m_change <- mean(mdif_percent[2:4])
+```
+##### Trends over time in male and female employment
+```{r, fig.width = 6, fig.height = 3, echo=FALSE}
+Q1plot
+```
+
+* There are significantly more female employees than males over time with the gender ratio being almost 2:1 
+* The number of female employees increased from 244776 in 2014 to 246049 in 2018 while male employees decreased from 137609 to 133411 
+* There was a 1.1% and 3.5% decrease in the number of female and male employees respectively between 2014 to 2015 
+* There was an average increase of 0.56% female and 0.15% male employees across the sector from 2015 to 2018
+
+```{r, echo=FALSE}
+# Number of Employees in each Sector from 2014 to 2018
+Q2table4 <- pt2.2 %>% group_by(Year,Cluster) %>% summarize(HC = sum(Headcount)) %>% pivot_wider(names_from=Year,values_from=HC)
+Q2table4 <- Q2table4[order(-Q2table4$`2018`),]
+Q2table4 <- kable(Q2table4,caption="Number of employees in each sector from 2014-2018") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+#Percentage of Part time by cluster
+pt7 <- pt2.1 %>% filter(Year == "2018")
+pt7.1 <- pt7 %>% group_by(Year) %>% mutate(Percent = paste(round(Headcount*100/sum(Headcount),2),"%",sep=""))
+ptft_sector_2018 <- pt7.1[,-3] %>% group_by(Year) %>% pivot_wider(names_from = PTFT, values_from = Percent)
+Q2table2 <- kable(ptft_sector_2018,caption="Percentage of Part Time and Full Time Employees in 2018") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+pt8 <- pt2.2 %>% filter(Year == "2018")
+Q2plot2 <- ggplot2::ggplot(pt8,aes(x=Cluster,y=Headcount,fill=PTFT)) + geom_bar(position="stack",stat="identity") + theme(axis.text.x = element_text(angle=90), axis.title.x = element_blank()) + ggtitle("Headcount of Full and Part Time Employees by Cluster in 2018")
+
+Q2plot3 <- ggplot2::ggplot(pt8,aes(x=Cluster,y=Headcount,fill=PTFT)) + geom_bar(position="fill",stat="identity") + theme(axis.text.x = element_text(angle=90), axis.title.x = element_blank()) + ggtitle("Percentage of Full and Part Time Employees by Cluster in 2018") + ylab("Percentage")
+
+pt9 <- pt8 %>% group_by(Cluster) %>% mutate(Percent = round(Headcount*100/sum(Headcount),2))
+Q2table3 <- pt9[,-4] %>% group_by(Cluster) %>% pivot_wider(names_from = PTFT, values_from = Percent)
+Q2table3 <- Q2table3[order(-Q2table3$`Full-Time`),]
+Q2table3 <- kable(Q2table3,caption="Percentage of Part Time and Full Time Employees in 2018 by Cluster") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+```
+
+##### The current representation of part time employees in the sector and in each sector
+
+```{r,echo=FALSE}
+Q2table2
+
+```
+
+* In 2018, there were 70.42% full time and 29.58% part time employees in the sector.
+* Across all sectors, there were more full time employees than part time employees.
+
+
+##### The current representation of part time employees in the sector and in each cluster
+```{r, echo=FALSE}
+Q2table3
+```
+
+* The industry and treasury clusters contained the highest percentage of full time employees at 93% and 90% respectively.
+* The education and health clusters contained the lowest percentage of full time employees at 55% and 67% respectively.
+
+##### Changes in the representation of part time employees in the sector over time
+
+```{r, echo=FALSE,fig.width=7, fig.height=4}
+Q2plot1 <- ggplot2::ggplot(pt4,aes(x=Year,y=Headcount, group=interaction(Gender,PTFT))) + geom_point(aes(color=Gender)) + geom_line(aes(color=Gender, linetype=PTFT), size=1) + theme(legend.position="right", axis.title.y = element_blank())+ ggtitle("Number of full time and part time employees from 2014-2018") 
+
+pt4.1 <- pt4 %>% group_by(Year) %>% pivot_wider(names_from=c(Gender,PTFT),values_from=Headcount)
+pt4.11 <- pt4.1
+colnames(pt4.11) <- c("Year","Female Part Time","Female Full Time","Male Part Time", "Male Full Time")
+Q2table1 <- kable(pt4.11[,c(1,4,2,5,3)],caption="Number of Part Time and Full Time Employees from 2014-2018") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+# Question 3 
+# Male and Female Part Time Employees By Sector Over Time
+pt4.2 <- pt4 %>% group_by(Gender, Year) %>% mutate(Percent = round( Headcount*100/sum(Headcount),2))
+Q3plot1 <- ggplot2::ggplot(pt4.2,aes(x=Gender,y=Percent,fill=PTFT)) + geom_bar(position="fill", stat="identity") + facet_wrap(~Year) + ggtitle("Percentage of Full and Part Time Employees by Gender from 2014-2018")
+
+pt4.21 <- pt4.2 %>% mutate(Gender_PTFT =case_when(
+(Gender == "Female" & PTFT == "Full-Time") ~ "Female Full Time",
+(Gender == "Female" & PTFT == "Part-Time") ~ "Female Part Time",
+(Gender == "Male" & PTFT == "Full-Time") ~ "Male Full Time",
+(Gender == "Male" & PTFT == "Part-Time") ~ "Male Part Time"))
+pt4.22 <- pt4.21[,-c(1,2)]
+
+Q3plot2 <- ggplot2::ggplot(pt4.22,aes(x=Year,y=Percent)) + geom_line(aes(colour=Gender_PTFT)) + ggtitle(swr("Percentage Changes in Full and Part Time Representation of Employees by Gender from 2014-2018",60)) + geom_point(aes(colour=Gender_PTFT)) + theme(legend.title = element_blank())
+Q3plot2
+
+Q3table1 <- pt4.1 %>% group_by(Year) %>% transmute(
+    Female_PT = paste(round(`Female_Part-Time`*100/(`Female_Full-Time` + `Female_Part-Time`),2),"%",sep=""),
+    Female_FT = paste(round(`Female_Full-Time`*100/(`Female_Full-Time` + `Female_Part-Time`),2),"%",sep=""),
+    Male_PT = paste(round(`Male_Part-Time`*100/(`Male_Full-Time` + `Male_Part-Time`),2),"%",sep=""),
+    Male_FT = paste(round(`Male_Full-Time`*100/(`Male_Full-Time` + `Male_Part-Time`),2),"%",sep=""))
+Q3table1 <- kable(Q3table1,caption="Percentage of Part Time and Full Time Employees from 2014-2018") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+femalept <- pt4.2 %>% filter(Gender == "Female")
+malept <- pt4.2 %>% filter(Gender == "Male")
+
+Q3plot3 <- ggplot2::ggplot(femalept, aes(x=Year,y=Percent,fill=PTFT)) + geom_bar(position="stack",stat="identity") + theme(axis.text.x = element_text(angle=90)) + ggtitle("Percentage of Full and Part Time Female Employees from 2014-2018")
+
+Q3plot4 <- ggplot2::ggplot(malept, aes(x=Year,y=Percent,fill=PTFT)) + geom_bar(position="stack",stat="identity")  + theme(axis.text.x = element_text(angle=90)) + ggtitle("Percentage of Full and Part Time Male Employees from 2014-2018")
+```
+
+* There has been very minimal change in the percentage of females working full time versus those in part time from 2014 to 2018. The division is approximately 36% part time and 64% full time employees.
+* There has been an increase in male part time employees from 10% in 2014 to 16.5% in 2018. Subsequently, there was a decrease in male full time employees from 90% to 83.5%.
+
+##### Changes in the representation of part time employees in each cluster over time
+
+```{r, echo=FALSE, fig.width=8, fig.height=4}
+# Question 3
+# Male and Female Part Time Employees By Cluster Over Time
+
+pt6.3 <- pt6 %>% group_by(Cluster, Gender, Year) %>% mutate(Percent = round( Headcount*100/sum(Headcount),2))
+
+femalept <- pt6.3 %>% filter(Gender == "Female")
+
+# Create string wrap of facet title
+femalept$Cluster = swr(femalept$Cluster,20)
+
+Q3plot5 <- ggplot2::ggplot(femalept, aes(x=Year,y=Percent,fill=PTFT)) + geom_bar(position="stack",stat="identity") + facet_wrap(~Cluster) + theme(axis.text.x = element_text(angle=90)) + ggtitle("Percentage of Full and Part Time Female Employees by Cluster from 2014-2018")
+Q3plot5
+
+malept <- pt6.3 %>% filter(Gender == "Male")
+
+# Create string wrap of facet title
+malept$Cluster = swr(malept$Cluster,20)
+
+Q3plot6 <- ggplot2::ggplot(malept, aes(x=Year,y=Percent,fill=PTFT)) + geom_bar(position="stack",stat="identity") + facet_wrap(~Cluster) + theme(axis.text.x = element_text(angle=90)) + ggtitle("Percentage of Full and Part Time Male Employees by Cluster from 2014-2018") 
+Q3plot6
+```
+
+* For female employees, there were no significant changes in the percentage of part time employees in the education, health, industry, planning and environment, treasury and premier and cabinet clusters. 
+* There was a decrease in the number of part time employees in the family and community services, industry and transport clusters and an increase in part time employees in the finance, services and innovation cluster.
+* For male employees, there were no significant changes in the percentage of part time employees in the industry, justice, planning and envrionment, premier and cabinet and treasury sectors.
+* There was a decrease in the number of part time employees in the family and community services cluster and an increase in part time employees in the education, finance services and innovation, health and transport sector.
+
+##### Projected representation of part time and full time employees in 2025.
+
+```{r, echo=FALSE}
+# Question 4 Projections for 2025
+
+fit <- lm(Percent ~ Year + Gender_PTFT, data=pt4.22)
+
+fft=function(x){coef(fit)[2]*x+coef(fit)[1]}
+fpt=function(x){coef(fit)[2]*x+coef(fit)[1]+coef(fit)[3]}
+mft=function(x){coef(fit)[2]*x+coef(fit)[1]+coef(fit)[4]}
+mpt=function(x){coef(fit)[2]*x+coef(fit)[1]+coef(fit)[5]}
+
+fft_sec25 <- fft(2025)
+fpt_sec25 <- fpt(2025)
+mft_sec25 <- mft(2025)
+mpt_sec25 <- mpt(2025)
+
+Employees <- round(c(fft_sec25,fpt_sec25,mft_sec25,mpt_sec25),2)
+Status <- c("Female FullTime","Female PartTime","Male FullTime","Male PartTime")
+Q4table1 <- data.frame(Status, Employees)
+Q4table1 <- kable(Q4table1,caption="Projected Percentage of Full and Part Time Employees in 2025 by Gender") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+
+```
+* A linear regression model was used to project the percentage of full time and part time employees in 2025.
+* It is expected that there will be 36% of females and 12.5% of males employed part time.
+
