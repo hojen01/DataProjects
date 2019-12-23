@@ -1,0 +1,48 @@
+---
+title: "Tennis 2017"
+author: "J"
+date: "12/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+```
+##### ATP Serve Statistics
+This is a report of the 2017 serve statistics of tennis players in the ATP tour.
+* Players are scored by their sum of percentage first serves in, first serves won, second serves won, service games won and average number of aces per match subtracted by the average number of double faults per match
+
+```{r, warning=FALSE, echo = FALSE}
+matchstat <- read.csv("match_stats_2017_unindexed_csv.csv", header=T)
+matchscore <- read.csv("match_scores_2017_unindexed_csv.csv", header=T)
+
+match <- merge(matchstat,matchscore, by.x="match_stats_url_suffix",by.y="match_stats_url_suffix", all=T)
+w <- match[,c(6:17,24,63)]
+l <- match[,c(30:41,48,66)]
+cname <- c("ace","df","f_serveIn","f_serveTot","f_servePtWon","f_servePtTot","s_servePtWon","s_servePtTot","bp_saved","bp_Tot","servPtWon","servPtTot","servGamePlayed","slug")
+colnames(w) <- cname
+colnames(l) <- cname
+p <- rbind(w,l)
+p1 <- p %>% mutate(fsIn = f_serveIn*100/f_serveTot, fsPw = f_servePtWon*100/f_servePtTot, ssPw = s_servePtWon*100/s_servePtTot, sgW = (servGamePlayed - (bp_Tot - bp_saved))*100/servGamePlayed)
+p2 <- p1 %>% filter(!is.na(id))
+ss <- p2 %>% group_by(slug) %>% summarise_all(mean, na.rm = TRUE)
+ss1 <- ss %>% mutate(score = fsIn + fsPw + ssPw + sgW + ace - df)
+serve_leaderboard <- ss1[,c(1,19,15:18,2:3)]
+leader <- serve_leaderboard[order(-serve_leaderboard$score),]
+leader[,c("first","last")] <- str_split_fixed(leader$slug,"-",2)
+
+capFirst <- function(s) {
+    paste(toupper(substring(s, 1, 1)), substring(s, 2), sep = "")
+}
+
+leader[9:10] <- lapply(leader[9:10], capFirst)
+leader <- leader %>% mutate(name = paste(first,last,sep=" "))
+leader <- leader[,c(11,2:8)]
+leader[,c(2:8)] <- sapply(leader[,c(2:8)], function(x) round(x,digits=2))
+leader <- na.omit(leader)
+colnames(leader) <- c("Name","Score","% 1st Serve In", "% 1st Serve Won", "% 2nd Serve Won", "% Service Games Won", "Average Aces/Match","Average Double Faults / Match")
+leader <- kable(leader,caption="Ranking of Players by Serve Statistics in 2017") %>% kable_styling(bootstrap_options = c("striped", "hover"),full_width=F)
+leader
+```
